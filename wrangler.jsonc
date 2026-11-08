@@ -8,7 +8,6 @@
   "d1_databases": [{
     "binding": "DB",
     "database_id": "6cd71ccf-b857-43bc-87ab-1fae06f4ede7",
-    "database_id": "REPLACE_WITH_DATABASE_ID",
     "migrations_dir": "migrations"
   }]
 }
