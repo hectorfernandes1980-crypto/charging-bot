@@ -136,7 +136,23 @@ export async function handleUpdate(update, env, now = localNow(new Date(), env.T
       return send(chunk);
     }
     if (command === '/abort') return send('Ввод отменён.');
-    return send('⚡ Бронирование зарядных мест\n\n/week — расписание на неделю\n/book — забронировать\n/cancel — отменить свою бронь\n/today — расписание сегодня\n/id — мой ID\n\nТвой ID: '+uid+(admin ? '\n\n👑 /add — добавить участника\n/remove — убрать участника\n/list — участники\n/abort — отменить ввод' : ''));
+       const menu = [
+      ['/today Сегодня', '/week Неделя'],
+      ['/book Забронировать', '/cancel Отменить'],
+      ['/id Мой ID', '/start Помощь']
+    ];
+
+    if (admin) {
+      menu.push(
+        ['/add Добавить', '/remove Убрать'],
+        ['/list Участники', '/abort Отменить ввод']
+      );
+    }
+
+    const help = '⚡ Бронирование зарядных мест\n\nВыбери команду в меню под полем ввода.'
+      + '\n\nТвой ID: ' + uid + (admin ? '\n👑 Ты администратор.' : '');
+
+    return send(help, {keyboard: menu, resize_keyboard: true, is_persistent: true});
   }
   const state = admin && await first(db,'SELECT action FROM states WHERE user_id=? AND expires>?',[uid,Date.now()]);
   if (!state) return send('Открой /start для списка команд.');
