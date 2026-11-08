@@ -79,6 +79,23 @@ export async function handleUpdate(update, env, now = localNow(new Date(), env.T
   };
   // Admin state and booking identities are scoped to private chats.
   if (message.chat.type !== 'private') { await answer('Открой личный чат с ботом.'); return; }
+    const ADD_PARTICIPANT_REQUEST_ID = 1;
+  if (message.users_shared) {
+    const {request_id, users} = message.users_shared;
+    if (!admin || request_id !== ADD_PARTICIPANT_REQUEST_ID || users?.length !== 1) return;
+    const selected = users[0];
+    const target = selected?.user_id;
+    if (!Number.isSafeInteger(target) || target <= 0) return;
+    if (target === uid) return send('У тебя уже есть доступ как у администратора.');
+
+    const name = [selected.first_name, selected.last_name].filter(Boolean).join(' ').slice(0, 128);
+    await mutate(db, update.update_id, [
+      ["INSERT INTO users(user_id,name,participant) SELECT ?,?,1 WHERE $GUARD ON CONFLICT(user_id) DO UPDATE SET participant=1,name=COALESCE(NULLIF(users.name,''),excluded.name)", [target, name]],
+      ['DELETE FROM states WHERE user_id=? AND $GUARD', [uid]]
+    ]);
+    const label = selected.username ? `@${selected.username}` : name || `ID ${target}`;
+    return send(`✅ Добавил участника: ${label}.`);
+  }
   const command = (message.text || '').trim().split(/\s/)[0].split('@')[0];
   const member = admin || !!(await first(db,'SELECT 1 FROM users WHERE user_id=? AND participant=1',[uid]));
   if (!member) { await answer(`Ты пока не в списке участников. Попроси администратора добавить тебя. Твой ID: ${uid}`); return; }
@@ -136,17 +153,27 @@ export async function handleUpdate(update, env, now = localNow(new Date(), env.T
       return send(chunk);
     }
     if (command === '/abort') return send('Ввод отменён.');
-       const menu = [
+        const menu = [
       ['/today Сегодня', '/week Неделя'],
       ['/book Забронировать', '/cancel Отменить'],
       ['/id Мой ID', '/start Помощь']
     ];
-
     if (admin) {
       menu.push(
-        ['/add Добавить', '/remove Убрать'],
-        ['/list Участники', '/abort Отменить ввод']
+        [{text: '➕ Добавить участника', request_users: {
+          request_id: ADD_PARTICIPANT_REQUEST_ID,
+          user_is_bot: false,
+          max_quantity: 1,
+          request_name: true,
+          request_username: true
+        }}],
+        ['/list Участники', '/remove Убрать'],
+        ['/abort Отменить ввод']
       );
+    }
+    const help = '⚡ Бронирование зарядных мест\n\nВыбери команду в меню под полем ввода.'
+      + '\n\nТвой ID: ' + uid + (admin ? '\n👑 Ты администратор.' : '');
+    return send(help, {keyboard: menu, resize_keyboard: true, is_persistent: true});
     }
 
     const help = '⚡ Бронирование зарядных мест\n\nВыбери команду в меню под полем ввода.'
