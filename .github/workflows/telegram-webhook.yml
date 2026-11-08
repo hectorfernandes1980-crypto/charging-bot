@@ -1,0 +1,26 @@
+name: Connect Telegram webhook
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  connect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Register webhook
+        shell: bash
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+        run: |
+          : "${BOT_TOKEN:?Добавь секрет BOT_TOKEN в GitHub}"
+          : "${WEBHOOK_SECRET:?Добавь секрет WEBHOOK_SECRET в GitHub}"
+
+          printf 'url = "https://api.telegram.org/bot%s/setWebhook"\ndata-urlencode = "secret_token=%s"\n' "$BOT_TOKEN" "$WEBHOOK_SECRET" |
+            curl -sS --fail-with-body --max-time 30 --config - \
+              --data-urlencode 'url=https://charging-bot.hector-fernandes1980.workers.dev/webhook' \
+              --data-urlencode 'allowed_updates=["message","callback_query"]' \
+              --data-urlencode 'max_connections=1' |
+            jq -e 'if .ok then .description else error(.description) end'
